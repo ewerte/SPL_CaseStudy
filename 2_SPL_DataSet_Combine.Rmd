@@ -1,0 +1,606 @@
+---
+title: "SPL_DataSet_Combine"
+author: "Elissa Ewert"
+date: "February 9, 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,echo=FALSE}
+# load packages
+library(tidyverse)
+library(magrittr)
+```
+
+```{r}
+# data location
+
+folder <- "C:/Users/Elissa/Documents/DSMS/Capstone_SPL/Data/RawData/"
+
+outFolder <- "C:/Users/Elissa/Documents/DSMS/Capstone_SPL/Data/"
+```
+
+# Read in data from SPL
+
+```{r}
+# read in OverDrive counts
+
+#read in first data set
+overdrive1 <- read.csv(file = paste0(folder, "data_req_overdrive_2018_01_2021_07.csv"), sep = ",")
+
+# convert date to character
+overdrive1$date <- as.character(as.Date(overdrive1$date))
+
+# rename column for binding dfs
+colnames(overdrive1)[1] <- "branch"
+
+# read in second data set
+overdrive2 <- read.csv(file = paste0(folder, "data_req_overdrive_2021_08_2021_12.csv"), sep = "\t")
+
+# convert date format and convetr to character
+overdrive2$date <- as.character(as.Date(overdrive2$date, format = "%m/%d/%Y"))
+
+# bind rows and remove dfs
+overDrive <- bind_rows(overdrive1, overdrive2)
+
+rm(overdrive1, overdrive2)
+
+
+# sum checkout and borrower_count data by date
+uniqueDate <- unique(overDrive$date)
+
+overDrive$totOverDRiveCko <- NA
+overDrive$totOverDRiveBorwCnt <-NA
+
+for(x in uniqueDate){
+  overDrive$totOverDRiveCko[overDrive$date == x] = sum(overDrive$checkouts[overDrive$date == x])
+  overDrive$totOverDRiveBorwCnt[overDrive$date == x] = sum(overDrive$borrower_count[overDrive$date == x])
+}
+
+overDrive %<>% select(c(date, totOverDRiveCko, totOverDRiveBorwCnt))
+
+overDrive <- overDrive[!duplicated(overDrive[,c("date", "totOverDRiveCko", "totOverDRiveBorwCnt")]), ]
+
+row.names(overDrive) <- 1:nrow(overDrive)
+```
+
+
+
+```{r}
+# read in openhours use counts
+
+openhours1 <- read.csv(file = paste0(folder, "data_req_open_hours_2018_01_2021_07.csv"), sep = ",")
+
+openhours1$date <- as.character(as.Date(openhours1$date))
+
+colnames(openhours1)[1] <- "branch"
+
+openhours2 <- read.csv(file = paste0(folder, "data_req_open_hours_2021_08_2021_12.csv"), sep = "\t")
+
+# convert date format and conver to character
+openhours2$date <- as.character(as.Date(openhours2$date, format = "%m/%d/%Y"))
+
+# bind rows and remove dfs
+openHours <- bind_rows(openhours1, openhours2)
+
+rm(openhours1, openhours2)
+
+# keep only true branches, not dropbox or ILL
+keep <- c("BAL", "BEA", "BRO", "CAP", "CEN", "COL", "DLR", "DTH", "FRE", "GLK", "GWD", "HIP", 
+          "IDC", "LCY", "MAG", "MGM", "MON", "NET", "NGA", "NHY", "QNA", "RBE", "SPA", "SWT", 
+          "UNI", "WAL", "WTS")
+
+openHours <- openHours[openHours$branch %in% keep, ]
+
+rownames(openHours) <- 1:nrow(openHours)
+
+# sum open hours traffic counts data by date
+uniqueDate <- unique(openHours$date)
+uniqueBranch <- unique(openHours$branch)
+
+openHours$totHours <- NA
+openHours$totBranchOpen <- NA
+openHours$pubHealthClosure <- NA
+openHours$closedNotes <- NA
+
+for(x in uniqueDate){
+  openHours$totHours[openHours$date == x] = sum(openHours$open_hours_count[openHours$date == x])
+  branchesOpen <- 0
+  pubHealth <-0
+  closedNote = ""
+  for(z in uniqueBranch){
+    if(openHours$open_hours_count[openHours$branch == z & openHours$date == x] > 0){
+      branchesOpen = branchesOpen +1
+    }
+    if(openHours$closed_note[openHours$branch == z & openHours$date == x] == "Public Health Closure"){
+      pubHealth = pubHealth + 1
+    }  
+    if(openHours$closed_note[openHours$branch == z & openHours$date == x] != "NULL"){
+      closedNote = paste(closedNote, openHours$closed_note[openHours$branch == z & openHours$date == x])
+    }
+  }
+  openHours$closedNotes[openHours$date == x] <- closedNote 
+  openHours$totBranchOpen[openHours$date == x] <- branchesOpen
+  openHours$pubHealthClosure[openHours$date == x] <- pubHealth
+}
+
+openHours %<>% select(c(date, totHours, totBranchOpen, pubHealthClosure, closedNotes))
+
+openHours <- openHours[!duplicated(openHours[,c("date", "totHours", "totBranchOpen", "pubHealthClosure", "closedNotes")]), ]
+
+row.names(openHours) <- 1:nrow(openHours)
+
+```
+
+
+```{r}
+# read in computer use counts
+
+#read in first data set
+computeruse1 <- read.csv(file = paste0(folder, "data_req_computer_use_2018_01_2021_07.csv"), sep = ",")
+
+#convert date to character
+computeruse1$date <- as.character(as.Date(computeruse1$date))
+
+#fix column name for binding dfs
+colnames(computeruse1)[1] <- "branch"
+
+#read in second data set
+computeruse2 <- read.csv(file = paste0(folder, "data_req_computer_use_2021_08_2021_12.csv"), sep = "\t")
+
+# convert date format and conver to character
+computeruse2$date <- as.character(as.Date(computeruse2$date, format = "%m/%d/%Y"))
+
+# bind rows and remove dfs
+computerUse <- bind_rows(computeruse1, computeruse2)
+
+rm(computeruse1, computeruse2)
+
+
+# sum pc_session data by date
+uniqueDate <- unique(computerUse$date)
+
+computerUse$totPCsessions <- NA
+
+for(x in uniqueDate){
+  computerUse$totPCsessions[computerUse$date == x] = sum(computerUse$pc_sessions[computerUse$date == x])
+}
+
+computerUse = merge(x = computerUse, y = openHours, by="date", all.x = TRUE)
+
+computerUse %<>% select(c(date, totPCsessions))
+
+computerUse <- computerUse[!duplicated(computerUse[,c("date", "totPCsessions")]), ]
+
+row.names(computerUse) <- 1:nrow(computerUse)
+```
+
+
+
+```{r}
+# read in in-person programs use counts - No in-person programs in second date range
+
+inPersonPrograms <- read.csv(file = paste0(folder, "data_req_inperson_programs_2018_01_2021_07.csv"), sep = ",")
+
+inPersonPrograms$date <- as.character(as.Date(inPersonPrograms$date))
+
+colnames(inPersonPrograms)[1] <- "branch"
+
+
+# sum program and attendance data by month
+uniqueDate <- unique(inPersonPrograms$date)
+
+inPersonPrograms$totProg <- NA
+inPersonPrograms$totAttnd <-NA
+
+inPersonPrograms$attendance <- as.numeric(inPersonPrograms$attendance)
+
+for(x in uniqueDate){
+  inPersonPrograms$totProg[inPersonPrograms$date == x] = sum(inPersonPrograms$program_count[inPersonPrograms$date == x])
+  inPersonPrograms$totAttnd[inPersonPrograms$date == x] = sum(inPersonPrograms$attendance[inPersonPrograms$date == x])
+}
+
+inPersonPrograms %<>% select(c(date, month, year, totProg, totAttnd))
+
+inPersonPrograms <- inPersonPrograms[!duplicated(inPersonPrograms[,c("date", "totProg", "totAttnd")]), ]
+
+row.names(inPersonPrograms) <- 1:nrow(inPersonPrograms)
+
+```
+
+
+```{r}
+# read in traffic counts
+
+traffic1 <- read.csv(file = paste0(folder, "data_req_traffic_2018_01_2021_07.csv"), sep = ",")
+
+traffic1$date <- as.character(as.Date(traffic1$date))
+
+colnames(traffic1)[1] <- "branch"
+
+traffic2 <- read.csv(file = paste0(folder, "data_req_traffic_2021_08_2021_12.csv"), sep = "\t")
+
+# convert date format and conver to character
+traffic2$date <- as.character(as.Date(traffic2$date, format = "%m/%d/%Y"))
+
+# bind rows and remove dfs
+traffic <- bind_rows(traffic1, traffic2)
+
+rm(traffic1, traffic2)
+
+
+# sum open hours traffic counts data by month
+uniqueDate <- unique(traffic$date)
+
+traffic$totTraffic <- NA
+
+for(x in uniqueDate){
+  traffic$totTraffic[traffic$date == x] = sum(traffic$open_hours_traffic_count[traffic$date == x])
+}
+
+traffic %<>% select(c(date, totTraffic))
+
+traffic <- traffic[!duplicated(traffic[,c("date", "totTraffic")]), ]
+
+row.names(traffic) <- 1:nrow(traffic)
+
+```
+
+
+```{r}
+# read in wifi counts
+
+wifi1 <- read.csv(file = paste0(folder, "data_req_wifi_2018_01_2021_07.csv"), sep = ",")
+
+# date as character
+wifi1$date <- as.character(as.Date(wifi1$date))
+
+#fix column name for binding data frames
+colnames(wifi1)[1] <- "branch"
+
+# read in second data set
+wifi2 <- read.csv(file = paste0(folder, "data_req_wifi_2021_08_2021_12.csv"), sep = "\t")
+
+# convert date format and conver to character
+wifi2$date <- as.character(as.Date(wifi2$date, format = "%m/%d/%Y"))
+
+# bind rows and remove dfs
+wifi <- bind_rows(wifi1, wifi2)
+
+rm(wifi1, wifi2)
+
+
+# sum connections and MB used data by day
+uniqueDate <- unique(wifi$date)
+
+wifi$totconnect <- NA
+wifi$totMBused <-NA
+
+for(x in uniqueDate){
+  wifi$totconnect[wifi$date == x] = sum(wifi$connections[wifi$date == x])
+  wifi$totMBused[wifi$date == x] = sum(wifi$mb_used[wifi$date == x])
+}
+
+wifi %<>% select(c(date, totconnect, totMBused))
+
+wifi <- wifi[!duplicated(wifi[,c("date", "totconnect", "totMBused")]), ]
+
+row.names(wifi) <- 1:nrow(wifi)
+
+```
+
+# Read in circulation data from Seattle Open Data - extracted from original file using Python script
+
+```{r}
+# circulation data from Seattle Open Data 
+
+printCirc <- read.csv(file = paste0(outFolder, "allCircDOW_df.csv"), sep = ",", )
+
+printCirc %<>% select(-c(X))
+
+printCirc[is.na(printCirc)] <- 0
+
+printCirc$otherType <- NA
+
+#compbine small value item type  into "other" column
+for(x in 1:nrow(printCirc)){
+  printCirc$otherType[x] <- sum(printCirc[x, c(4,8, 12:42)])
+}
+
+printCirc %<>% select(c(date, totCirc, acbk, jcbk, accd, pkbknh, acdvd, jcdvd, jccd, otherType, nameOfDay))
+
+printCirc$date <- as.character(as.Date(printCirc$date, format = "%m/%d/%Y"))
+```
+
+# join library data into single data set
+
+```{r}
+data = merge(x = printCirc, y = openHours, by="date", all.x = TRUE)
+data = merge(x = data, y = wifi, by="date", all.x = TRUE)
+data = merge(x = data, y = traffic, by="date", all.x = TRUE)
+data = merge(x = data, y = inPersonPrograms, by="date", all.x = TRUE) #monthly statistic
+data = merge(x = data, y = computerUse, by="date", all.x = TRUE)
+data = merge(x = data, y = overDrive, by="date", all.x = TRUE)
+
+rm(printCirc, openHours, wifi, traffic, inPersonPrograms, computerUse, overDrive)
+
+data <- data[order(data$date), ]
+```
+
+# Read in Covid19 data from King County Public Health and join with SPL data
+
+```{r}
+# read in covid19 counts
+
+covid19 <- read.csv(file = paste0(folder, "king_county_Covid_data.csv"), sep = ",")
+
+colnames(covid19)[1] <- "City"
+colnames(covid19)[2] <- "date"
+
+# convert date format and conver to character
+covid19$date <- as.character(as.Date(covid19$date, format = "%m/%d/%Y"))
+
+
+#sum data by data for full county
+uniqueDate <- unique(covid19$date)
+
+covid19$allTestResultsCnty <- NA
+covid19$peopleTestedCnty <-NA
+covid19$positivesCnty <-NA
+covid19$confirmedCasesCnty <-NA
+covid19$probableCasesCnty <-NA
+covid19$hospitalizationsCnty <-NA
+covid19$deathsCnty <-NA
+
+for(x in uniqueDate){
+  covid19$allTestResultsCnty[covid19$date == x] = sum(covid19$All_Test_Results[covid19$date == x])
+  
+  covid19$peopleTestedCnty[covid19$date == x] = sum(covid19$People_Tested[covid19$date == x])
+  
+  covid19$positivesCnty[covid19$date == x] = sum(covid19$Positives[covid19$date == x])
+  
+  covid19$confirmedCasesCnty[covid19$date == x] = sum(covid19$Confirmed_Cases[covid19$date == x])
+  
+  covid19$probableCasesCnty[covid19$date == x] = sum(covid19$Probable_Cases[covid19$date == x])
+  
+  covid19$hospitalizationsCnty[covid19$date == x] = sum(covid19$Hospitalizations[covid19$date == x])
+  
+  covid19$deathsCnty[covid19$date == x] = sum(covid19$Deaths[covid19$date == x])
+}
+
+covid19cnty <- select(covid19, c(date, allTestResultsCnty, peopleTestedCnty, positivesCnty, confirmedCasesCnty,          
+                          probableCasesCnty, hospitalizationsCnty, deathsCnty ))
+
+covid19cnty <- covid19cnty[!duplicated(covid19cnty[,c('date', "allTestResultsCnty", "peopleTestedCnty", "positivesCnty", 
+                                              'confirmedCasesCnty', "probableCasesCnty", "hospitalizationsCnty", 
+                                              "deathsCnty" )]), ]
+
+row.names(covid19cnty) <- 1:nrow(covid19cnty)
+
+
+#sum data by data for Seattle only
+uniqueDate <- unique(covid19$date)
+
+covid19$allTestResultsStl <- NA
+covid19$peopleTestedStl <-NA
+covid19$positivesStl <-NA
+covid19$confirmedCasesStl <-NA
+covid19$probableCasesStl <-NA
+covid19$hospitalizationsStl <-NA
+covid19$deathsStl <-NA
+
+for(x in uniqueDate){
+  covid19$allTestResultsStl[covid19$date == x] = sum(covid19$All_Test_Results[covid19$date == x & covid19$City == "Seattle"])
+  
+  covid19$peopleTestedStl[covid19$date == x] = sum(covid19$People_Tested[covid19$date == x & covid19$City == "Seattle"])
+  
+  covid19$positivesStl[covid19$date == x] = sum(covid19$Positives[covid19$date == x & covid19$City == "Seattle"])
+  
+  covid19$confirmedCasesStl[covid19$date == x] = sum(covid19$Confirmed_Cases[covid19$date == x & covid19$City == "Seattle"])
+  
+  covid19$probableCasesStl[covid19$date == x] = sum(covid19$Probable_Cases[covid19$date == x & covid19$City == "Seattle"])
+  
+  covid19$hospitalizationsStl[covid19$date == x] = sum(covid19$Hospitalizations[covid19$date == x & covid19$City == "Seattle"])
+  
+  covid19$deathsStl[covid19$date == x] = sum(covid19$Deaths[covid19$date == x & covid19$City == "Seattle"])
+}
+
+covid19stl <- select(covid19, c(date, allTestResultsStl, peopleTestedStl, positivesStl, confirmedCasesStl,          
+                          probableCasesStl, hospitalizationsStl, deathsStl ))
+
+covid19stl <- covid19stl[!duplicated(covid19stl[,c('date', "allTestResultsStl", "peopleTestedStl", "positivesStl", 
+                                              'confirmedCasesStl', "probableCasesStl", "hospitalizationsStl", 
+                                              "deathsStl" )]), ]
+
+row.names(covid19stl) <- 1:nrow(covid19stl)
+```
+
+
+```{r}
+data = merge(x = data, y = covid19stl, by="date", all.x = TRUE)
+data = merge(x = data, y = covid19cnty, by="date", all.x = TRUE)
+
+covidColumns <- c("allTestResultsStl", "peopleTestedStl", "positivesStl", 'confirmedCasesStl', "probableCasesStl",
+                  "hospitalizationsStl", "deathsStl", "allTestResultsCnty", "peopleTestedCnty", "positivesCnty",
+                  'confirmedCasesCnty', "probableCasesCnty", "hospitalizationsCnty", "deathsCnty")
+
+# replace NAs for days before Feb 2020 with 0s (pre-covid, not numbers)
+for(c in covidColumns){
+  is.na(data[, c]) <- 0
+}
+
+data <- data[order(data$date), ]
+```
+
+```{r}
+#read in vaccine data
+vaccine <- read.csv(file = paste0(folder, "KingCounty_Vaccine_Day.csv"), sep = ",")
+
+vaccine$date <- as.character(vaccine$date)
+vaccine$doseOne <- vaccine$Primary.mRNA.dose.1
+vaccine$fullDose <- vaccine$Primary.mRNA.dose.2 + vaccine$Primary.J.J.Janssen.dose
+vaccine$booster <- vaccine$Additional.booster.dose
+
+vaccine %<>% select(c(date, doseOne, fullDose, booster, Population))
+
+data = merge(x = data, y = vaccine, by="date", all.x = TRUE)
+```
+
+# Add data for Stay at Home order for WA and status of pandemic (Y/N) from WHO
+
+```{r}
+# create column for day number of pandemic and 
+
+date <- seq(as.Date("2020-03-11"), as.Date("2021-12-31"), by="days")
+
+pandemicDayNumber <- seq(1,length(date), by = 1)
+
+pandemicYes <- rep("Y",length(date))
+
+worldWidePandemic <- cbind(data.frame(date), data.frame(pandemicDayNumber), data.frame(pandemicYes))
+
+worldWidePandemic$date %<>% as.character
+
+# column for stay at home order
+date <- seq(as.Date("2020-03-25"), as.Date("2020-06-30"), by="days")
+
+stayAtHome <- rep("Y",length(date))
+
+WAstayAtHome <- cbind(data.frame(date), data.frame(stayAtHome))
+
+WAstayAtHome$date %<>% as.character
+
+#merge
+data = merge(x = data, y = worldWidePandemic, by="date", all.x = TRUE)
+
+data$pandemicYes[is.na(data$pandemicYes)] <- "N"
+
+data = merge(x = data, y = WAstayAtHome, by="date", all.x = TRUE)
+
+data$stayAtHome[is.na(data$stayAtHome)] <- "N"
+
+rm(covid19cnty, covid19stl, vaccine, worldWidePandemic, WAstayAtHome, covid19)
+```
+
+
+#recode column names for clarity
+
+```{r}
+colnames(data) %<>% recode("totCirc" = "circ_total_physical",
+                           "acbk" = "circ_acbk",
+                           "jcbk" = "circ_jcbk",
+                           "pkbknh" = "circ_pkbknh",
+                           "acdvd" = "circ_acdvd",
+                           "jcdvd" = "circ_jcdvd",
+                           "jccd" = "circ_jccd",
+                           "accd" = "circ_accd",
+                           "otherType" = "circ_otherType",
+                           "nameOfDay" = "day_of_week",
+                           "totHours" = "open_total_hours",
+                           "totBranchOpen" = "open_total_branches",
+                           "pubHealthClosure" = "closed_public_health",
+                           "closedNotes" = "closed_notes",
+                           "totconnect" = "wifi_total_connections",
+                           "totMBused" = "wifi_total_MB",
+                           "totTraffic" = "traffic_total",
+                           "totAttnd" = "programs_monthly_attendance",
+                           "totProg" = "program_monthly_total",
+                           "totPCsessions" = "pc_total_sessions",
+                           "totOverDRiveCko" = "circ_overdrive_cko",
+                           "totOverDRiveBorwCnt" = "circ_overdrive_bwrct",
+                           "peopleTestedStl" = "covid_test_tested_stl", 
+                           "positivesStl" = "covid_test_positive_stl", 
+                           "confirmedCasesStl" = "covid_test_confirmed_stl", 
+                           "hospitalizationsStl" = "covid_test_hospital_stl", 
+                           "deathsStl" = "covid_test_deaths_stl", 
+                           "peopleTestedCnty" = "covid_test_tested_cnty", 
+                           "positivesCnty" = "covid_test_positive_cnty", 
+                           "confirmedCasesCnty" = "covid_test_confirmed_cnty", 
+                           "hospitalizationsCnty" = "covid_test_hospital_cnty", 
+                           "deathsCnty" = "covid_test_deaths_cnty", 
+                           "doseOne" = "covid_vax_doseone_cnty",
+                           "fullDose" = "covid_vax_fulldose_cnty",
+                           "booster" = "covid_vax_booster_cnty",
+                           "Population" = "covid_vax_population_cnty",
+                           "pandemicDayNumber" = "pandemic_day_number",
+                           "pandemicYes" = "pandemic_yes",
+                           "stayAtHome" = "pandemic_stay_at_home",
+                           )
+
+# remove unneeded columns
+
+data %<>% select(-c(allTestResultsStl, probableCasesStl, allTestResultsCnty, probableCasesCnty, program_monthly_total, programs_monthly_attendance))
+```
+
+```{r}
+#add unique month/year/month name columns
+
+for(x in 1:nrow(data)){
+  data$month[x] <- paste0(str_split(data$date[x], pattern = "-")[[1]][2])
+  data$year[x] <- paste0(str_split(data$date[x], pattern = "-")[[1]][1])
+  data$month_name[x] <- paste0(str_split(data$date[x], pattern = "-")[[1]][2])
+}
+
+data$month_name %<>% recode("01" = "January",
+                            "02" = "February",
+                            "03" = "March",
+                            "04" = "April",
+                            "05" = "May",
+                            "06" = "June",
+                            "07" = "July",
+                            "08" = "August",
+                            "09" = "September",
+                            "10" = "October",
+                            "11" = "November",
+                            "12" = "December")
+
+
+data$pc_avg_sessions_hour <- round((data$pc_total_sessions / data$open_total_hours), 2)
+
+# select and order columns
+
+
+data %<>% select(c(date, circ_total_physical, circ_acbk, circ_jcbk, circ_accd, circ_pkbknh, circ_acdvd, circ_acdvd, circ_jccd,
+                   circ_otherType, circ_overdrive_cko, circ_overdrive_bwrct, wifi_total_connections,wifi_total_MB, traffic_total,
+                   pc_total_sessions, pc_avg_sessions_hour, 
+                   year, month, month_name, day_of_week, open_total_hours, open_total_branches, closed_public_health, closed_notes,
+                   covid_test_tested_stl, covid_test_positive_stl, covid_test_confirmed_stl, covid_test_hospital_stl, covid_test_deaths_stl, 
+                   covid_test_tested_cnty, covid_test_positive_cnty, covid_test_confirmed_cnty, covid_test_hospital_cnty, covid_test_deaths_cnty, 
+                   covid_vax_doseone_cnty, covid_vax_fulldose_cnty, covid_vax_booster_cnty, covid_vax_population_cnty, pandemic_yes, pandemic_day_number, 
+                   pandemic_stay_at_home))
+
+data[is.na(data)] <- 0
+
+```
+
+
+# Save daily data set
+
+```{r}
+
+dataDaily <- data
+```
+
+# write daily and monthly .csv files
+
+```{r}
+write.table(x = dataDaily, file = paste0(outFolder, "SPL_Full_Data_Daily_Updated.csv"), quote = FALSE, sep = ",",
+            row.names = FALSE, col.names = TRUE, na = "")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
