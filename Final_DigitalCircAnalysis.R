@@ -21,6 +21,17 @@ dataMonth <- read.csv(file = paste0(folder, "SPL_Full_Data_Monthly_Final.csv"), 
 odts <- ts(data = dataMonth$circ_overdrive_cko , start= c(2018, 1), frequency = 12)
 plot(odts, ylab = "Circulation")
 
+#side by side box plots
+options(scipen=100000)
+
+ggplot(dataMonth, aes(x=pandemic_yes, y=circ_overdrive_cko, fill=pandemic_yes)) +
+  geom_boxplot() +
+  geom_dotplot(binaxis = "y", stackdir = "center", dotsize = 0.5) +
+  scale_fill_manual(values = c("#4472C4", "#ED7D31"))+
+  labs(
+    x = "Pandemic",
+    y = "Circulation per Month"
+  )
 
 # Moving averages
 outpar <- par(no.readonly=TRUE)
@@ -40,6 +51,16 @@ autoplot(mstlodts)
 
 # ADF test
 adf.test(odts)
+
+# ACF/PACF
+Acf(odts)
+Pacf(odts)
+
+ndiffs(odts)
+
+Acf(diff(odts, 1))
+Pacf(diff(odts, 1))
+
 
 
 #Exponential Smoothing n----------------------------------------------------------------------
