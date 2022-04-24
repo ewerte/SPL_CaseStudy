@@ -297,7 +297,7 @@ row.names(wifi) <- 1:nrow(wifi)
 ```{r}
 # circulation data from Seattle Open Data 
 
-printCirc <- read.csv(file = paste0(outFolder, "allCircDOW_df.csv"), sep = ",", )
+printCirc <- read.csv(file = paste0(outFolder, "allCircDOW_18-21_df.csv"), sep = ",", )
 
 printCirc %<>% select(-c(X))
 
@@ -440,11 +440,11 @@ data <- data[order(data$date), ]
 vaccine <- read.csv(file = paste0(folder, "KingCounty_Vaccine_Day.csv"), sep = ",")
 
 vaccine$date <- as.character(vaccine$date)
-vaccine$doseOne <- vaccine$Primary.mRNA.dose.1
-vaccine$fullDose <- vaccine$Primary.mRNA.dose.2 + vaccine$Primary.J.J.Janssen.dose
+vaccine$mRNA_1 <- vaccine$Primary.mRNA.dose.1
+vaccine$mRNA_2 <- vaccine$Primary.mRNA.dose.2
+vaccine$JJdose <- vaccine$Primary.J.J.Janssen.dose
 vaccine$booster <- vaccine$Additional.booster.dose
-
-vaccine %<>% select(c(date, doseOne, fullDose, booster, Population))
+vaccine %<>% select(c(date, mRNA_1, mRNA_2, booster, JJdose, Population))
 
 data = merge(x = data, y = vaccine, by="date", all.x = TRUE)
 ```
@@ -521,9 +521,10 @@ colnames(data) %<>% recode("totCirc" = "circ_total_physical",
                            "confirmedCasesCnty" = "covid_test_confirmed_cnty", 
                            "hospitalizationsCnty" = "covid_test_hospital_cnty", 
                            "deathsCnty" = "covid_test_deaths_cnty", 
-                           "doseOne" = "covid_vax_doseone_cnty",
-                           "fullDose" = "covid_vax_fulldose_cnty",
+                           "mRNA_1" = "covid_vax_mRNA_1_cnty",
+                           "mRNA_2" = "covid_vax_mRNA_2_cnty",
                            "booster" = "covid_vax_booster_cnty",
+                           "JJdose" = "covid_vax_JJdose_cnty",
                            "Population" = "covid_vax_population_cnty",
                            "pandemicDayNumber" = "pandemic_day_number",
                            "pandemicYes" = "pandemic_yes",
@@ -532,7 +533,10 @@ colnames(data) %<>% recode("totCirc" = "circ_total_physical",
 
 # remove unneeded columns
 
-data %<>% select(-c(allTestResultsStl, probableCasesStl, allTestResultsCnty, probableCasesCnty, program_monthly_total, programs_monthly_attendance))
+data %<>% select(-c(allTestResultsStl, probableCasesStl, allTestResultsCnty, probableCasesCnty))
+
+#, program_monthly_total, programs_monthly_attendance
+
 ```
 
 ```{r}
@@ -565,11 +569,11 @@ data$pc_avg_sessions_hour <- round((data$pc_total_sessions / data$open_total_hou
 
 data %<>% select(c(date, circ_total_physical, circ_acbk, circ_jcbk, circ_accd, circ_pkbknh, circ_acdvd, circ_acdvd, circ_jccd,
                    circ_otherType, circ_overdrive_cko, circ_overdrive_bwrct, wifi_total_connections,wifi_total_MB, traffic_total,
-                   pc_total_sessions, pc_avg_sessions_hour, 
+                   pc_total_sessions, pc_avg_sessions_hour, program_monthly_total, programs_monthly_attendance,
                    year, month, month_name, day_of_week, open_total_hours, open_total_branches, closed_public_health, closed_notes,
                    covid_test_tested_stl, covid_test_positive_stl, covid_test_confirmed_stl, covid_test_hospital_stl, covid_test_deaths_stl, 
                    covid_test_tested_cnty, covid_test_positive_cnty, covid_test_confirmed_cnty, covid_test_hospital_cnty, covid_test_deaths_cnty, 
-                   covid_vax_doseone_cnty, covid_vax_fulldose_cnty, covid_vax_booster_cnty, covid_vax_population_cnty, pandemic_yes, pandemic_day_number, 
+                   covid_vax_mRNA_1_cnty, covid_vax_mRNA_2_cnty, covid_vax_JJdose_cnty, covid_vax_booster_cnty, covid_vax_population_cnty, pandemic_yes, pandemic_day_number, 
                    pandemic_stay_at_home))
 
 data[is.na(data)] <- 0
@@ -587,7 +591,7 @@ dataDaily <- data
 # write daily and monthly .csv files
 
 ```{r}
-write.table(x = dataDaily, file = paste0(outFolder, "SPL_Full_Data_Daily_Updated.csv"), quote = FALSE, sep = ",",
+write.table(x = dataDaily, file = paste0(outFolder, "SPL_Full_Data_Daily_Updated_Again_18-21.csv"), quote = FALSE, sep = ",",
             row.names = FALSE, col.names = TRUE, na = "")
 ```
 
