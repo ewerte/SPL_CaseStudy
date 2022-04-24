@@ -9,6 +9,8 @@ library(stats)
 library(forecast)
 library(tseries)
 library("tfse")
+library(ggplot2)
+
 
 
 
@@ -21,6 +23,17 @@ dataMonth <- read.csv(file = paste0(folder, "SPL_Full_Data_Monthly_Final.csv"), 
 pcts <- ts(data = dataMonth$circ_total_physical, start= c(2018, 1), frequency = 12)
 plot(pcts, ylab = "Circulation")
 
+#side by side box plots
+options(scipen=100000)
+
+ggplot(dataMonth, aes(x=pandemic_yes, y=circ_total_physical, fill=pandemic_yes)) +
+  geom_boxplot() +
+  geom_dotplot(binaxis = "y", stackdir = "center", dotsize = 0.5) +
+  scale_fill_manual(values = c("#4472C4", "#ED7D31"))+
+  labs(
+    x = "Pandemic",
+    y = "Circulation per Month"
+  ) 
 
 # Moving averages
 outpar <- par(no.readonly=TRUE)
@@ -40,6 +53,15 @@ autoplot(mstlpcts)
 
 # ADF test
 adf.test(pcts)
+
+# ACF/PACF
+Acf(pcts)
+Pacf(pcts)
+
+ndiffs(pcts)
+
+Acf(diff(pcts, 1))
+Pacf(diff(pcts, 1))
 
 
 #Exponential Smoothing n----------------------------------------------------------------------
